@@ -1,24 +1,21 @@
 #include "Renderer.h"
 #include "VkUtil.h"
-#include <vulkan/vulkan.h>
 #include <vector>
 #include <iostream>
 #include <cassert>
-
-
 
 Renderer::Renderer()
 {
     createWindow();
     createInstance();
 	mDebugMessenger = VkUtil::SetupDebugMessenger(mInstance);
+    createSurface();
+    pickPhysicalDevice();
 }
-
 
 void Renderer::Run()
 {
     mainLoop();
-
     cleanup();
 }
 
@@ -27,6 +24,7 @@ void Renderer::createWindow()
     glfwInit(); // 기본 init이겠고
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     mWindow = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
+
 }
 
 void Renderer::createInstance()
@@ -80,6 +78,89 @@ void Renderer::createInstance()
 	VkUtil::ExitIfFailed(result, "failed to create instance!");
 }
 
+void Renderer::createSurface()
+{
+    VkResult result = glfwCreateWindowSurface(mInstance, mWindow, nullptr, &mSurface);
+    VkUtil::ExitIfFailed(result, "glfwCreateWindowSurface");
+}
+
+void Renderer::pickPhysicalDevice()
+{
+    uint32_t deviceCount = 0;
+    vkEnumeratePhysicalDevices(mInstance, &deviceCount, nullptr);
+    if (deviceCount == 0)
+    {
+		VkUtil::ExitIfFalse(false, "failed to find GPUs with Vulkan support!");
+    }
+
+	std::vector<VkPhysicalDevice> devices(deviceCount);
+    vkEnumeratePhysicalDevices(mInstance, &deviceCount, devices.data());
+
+	VkPhysicalDevice selectedDevice = VK_NULL_HANDLE;
+    for (const auto& device : devices)
+    {
+        // 그래픽 작업을 할 수 있고 출력할 수 있는 지 확인
+        std::optional<uint32_t> graphicsFamilyIndex;
+        std::optional<uint32_t> presentFamilyIndex;
+		FindQueueFamilies(device, graphicsFamilyIndex, presentFamilyIndex);
+        if (!graphicsFamilyIndex.has_value() || !presentFamilyIndex.has_value())
+        {
+            continue;
+		}
+
+        VkPhysicalDeviceProperties deviceProperties{};
+		vkGetPhysicalDeviceProperties(device, &deviceProperties);
+        
+        // 외장 GPU를 사용하자.
+        if (deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+        {
+            selectedDevice = device;
+			mGraphicsFamilyIndex = graphicsFamilyIndex;
+			mPresentFamilyIndex = presentFamilyIndex;
+            break;
+	    }
+
+    }
+
+    if (selectedDevice == VK_NULL_HANDLE)
+    {
+        VkUtil::ExitIfFalse(false, "No suitable GPU");
+    }
+
+	mPhysicalDevice = selectedDevice;
+}
+
+
+void Renderer::FindQueueFamilies(VkPhysicalDevice device, std::optional<uint32_t>& outGraphicsFamilyIndex, std::optional<uint32_t>& outPresentFamilyIndex) const
+{
+    uint32_t count = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &count, nullptr);
+
+    std::vector<VkQueueFamilyProperties> props(count);
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &count, props.data());
+
+    for (uint32_t i = 0; i < count; ++i) 
+    {
+        if (props[i].queueCount > 0 && (props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)) 
+        {
+            outGraphicsFamilyIndex = i;
+        }
+
+        VkBool32 presentSupport = VK_FALSE;
+        vkGetPhysicalDeviceSurfaceSupportKHR(device, i, mSurface, &presentSupport);
+        if (props[i].queueCount > 0 && presentSupport == VK_TRUE) 
+        {
+            outPresentFamilyIndex = i;
+        }
+
+        if (outGraphicsFamilyIndex.has_value() && outPresentFamilyIndex.has_value())
+        {
+            break;
+        }
+    }
+}
+
+
 
 void Renderer::mainLoop()
 {
@@ -92,6 +173,10 @@ void Renderer::mainLoop()
 void Renderer::cleanup()
 {
 
+
+    vkDestroySurfaceKHR(mInstance, mSurface, nullptr);
+	VkUtil::DestroyDebugUtilsMessengerEXT(mInstance, mDebugMessenger, nullptr);
+	vkDestroyInstance(mInstance, nullptr);
     glfwDestroyWindow(mWindow);
     glfwTerminate();
 }
