@@ -11,12 +11,6 @@ public:
 	static const std::vector<const char*>& GetValidationLayers();
 	static bool CheckValidationLayerSupport();
 
-	static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
-		VkDebugUtilsMessageSeverityFlagBitsEXT severity,
-		VkDebugUtilsMessageTypeFlagsEXT type,
-		const VkDebugUtilsMessengerCallbackDataEXT* data,
-		void* userData);
-
 	static VkResult CreateDebugUtilsMessengerEXT(
 		VkInstance instance,
 		const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
@@ -31,8 +25,16 @@ public:
 	static void PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& ci);
 	static VkDebugUtilsMessengerEXT SetupDebugMessenger(VkInstance instance);
 
+	static std::vector<char> ReadFile(const char* filename);
+
 private:
 	static const std::vector<const char*> kValidationLayers;
 
+
+	static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
+		VkDebugUtilsMessageSeverityFlagBitsEXT severity,
+		VkDebugUtilsMessageTypeFlagsEXT type,
+		const VkDebugUtilsMessengerCallbackDataEXT* data,
+		void* userData);
 
 };

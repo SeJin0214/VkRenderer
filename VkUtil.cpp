@@ -1,6 +1,8 @@
 
 #include "VkUtil.h"
 #include <iostream>
+#include <filesystem>
+#include <fstream>
 #include <GLFW/glfw3.h>
 
 const std::vector<const char*> VkUtil::kValidationLayers = {
@@ -63,7 +65,6 @@ void VkUtil::DestroyDebugUtilsMessengerEXT(
     auto fn = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
         instance, "vkDestroyDebugUtilsMessengerEXT");
 
-
     if (fn != nullptr)
     {
         fn(instance, messenger, pAllocator);
@@ -72,7 +73,6 @@ void VkUtil::DestroyDebugUtilsMessengerEXT(
 
 VkDebugUtilsMessengerEXT VkUtil::SetupDebugMessenger(VkInstance instance) 
 {
-
 #ifdef NDEBUG
     return VK_NULL_HANDLE;
 #endif
@@ -188,4 +188,22 @@ void VkUtil::ExitIfFailed(VkResult result, const char* what)
 	std::exit(EXIT_FAILURE);
 }
 
+
+std::vector<char> VkUtil::ReadFile(const char* filename)
+{
+    uintmax_t fileSize = std::filesystem::file_size(filename);
+    std::vector<char> buffer(fileSize);
+
+    std::ifstream file(filename, std::ios::binary);
+    if (file.is_open())
+    {
+        file.read(buffer.data(), fileSize);
+		file.close();
+	}
+    else
+    {
+		std::cerr << "Failed to open file: " << filename << std::endl;
+    }
+    return buffer;
+}
 
